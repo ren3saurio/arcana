@@ -752,6 +752,52 @@
   .media-card:hover .card-delete { opacity: 1; }
   .card-delete:hover { background: rgba(224,122,82,0.15); color: var(--series); border-color: var(--series); }
 
+  /* TMDB results */
+  .tmdb-results {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .tmdb-result {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .tmdb-result:hover { border-color: var(--border2); background: var(--surface3); }
+  .tmdb-result.selected { border-color: var(--manga); background: rgba(106,170,106,0.08); }
+
+  .tmdb-result img {
+    width: 32px; height: 46px;
+    object-fit: cover;
+    border-radius: 5px;
+    flex-shrink: 0;
+    background: var(--surface3);
+  }
+
+  .tmdb-result-info { flex: 1; min-width: 0; }
+  .tmdb-result-title { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tmdb-result-meta  { font-family: 'Fira Mono', monospace; font-size: 9px; color: var(--text-faint); margin-top: 2px; }
+
+  .tmdb-no-results {
+    font-family: 'Fira Mono', monospace;
+    font-size: 10px;
+    color: var(--text-faint);
+    text-align: center;
+    padding: 16px 0;
+    letter-spacing: 1px;
+  }
+
   select option { background: var(--surface2); color: var(--text); }
 
   /* Scrollbar */
@@ -940,18 +986,34 @@
       <input id="inputTitle" class="f-input" type="text" placeholder="Nombre del contenido…">
     </div>
 
+    <div class="f-group" id="tmdb-search-group">
+      <label class="f-label">Buscar en base de datos</label>
+      <div style="position:relative">
+        <input id="tmdbQuery" class="f-input" type="text"
+               placeholder="Escribe el título para buscar…"
+               oninput="debouncedSearch(this.value)" autocomplete="off">
+        <div id="tmdbSpinner" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="2">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83">
+              <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/>
+            </path>
+          </svg>
+        </div>
+      </div>
+      <div id="tmdbResults" class="tmdb-results"></div>
+    </div>
+
     <div class="f-group">
-      <label class="f-label">Portada / Poster</label>
+      <label class="f-label">Portada</label>
       <div class="cover-picker">
         <div class="cover-preview" id="coverPreview">
           <span class="cover-preview-empty">Vista previa</span>
         </div>
         <div class="cover-inputs">
-          <div class="paste-zone" id="pasteZone" tabindex="0">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-3"/></svg>
-            Clic aquí y pega con <kbd>Ctrl+V</kbd>
+          <div id="coverStatus" style="font-family:'Fira Mono',monospace;font-size:9px;color:var(--text-faint);line-height:1.7;">
+            Selecciona un resultado arriba<br>para obtener la portada automáticamente.
           </div>
-          <div class="cover-divider"><span>o sube un archivo</span></div>
+          <div class="cover-divider"><span>o sube manualmente</span></div>
           <label class="cover-upload-btn">
             <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             Seleccionar imagen
@@ -1232,22 +1294,17 @@
     document.getElementById('coverUrl').value    = entry.cover || '';
     document.getElementById('inputNotes').value  = entry.notes || '';
 
+    document.getElementById('tmdbQuery').value      = '';
+    document.getElementById('tmdbResults').innerHTML = '';
+
     if (entry.cover) {
       document.getElementById('coverUrl').value = entry.cover;
-      document.getElementById('coverPreview').innerHTML =
-        `<img src="${entry.cover}" alt="portada">`;
-      setTimeout(() => {
-        const zone = document.getElementById('pasteZone');
-        if (zone) {
-          zone.classList.add('ready');
-          zone.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Imagen lista`;
-        }
-      }, 0);
+      document.getElementById('coverPreview').innerHTML = `<img src="${entry.cover}" alt="portada">`;
+      document.getElementById('coverStatus').innerHTML  = `<span style="color:var(--manga)">✓ Portada guardada</span>`;
     } else {
       document.getElementById('coverUrl').value = '';
-      document.getElementById('coverPreview').innerHTML =
-        `<span class="cover-preview-empty">Vista previa</span>`;
-      setTimeout(resetPasteZone, 0);
+      document.getElementById('coverPreview').innerHTML = '<span class="cover-preview-empty">Vista previa</span>';
+      document.getElementById('coverStatus').innerHTML  = 'Selecciona un resultado arriba<br>para obtener la portada automáticamente.';
     }
 
     // Fill dynamic fields after template is rendered
@@ -1359,13 +1416,16 @@
     document.getElementById('inputStatus').value = 'En progreso';
     document.getElementById('coverUrl').value    = '';
     document.getElementById('inputNotes').value  = '';
+    document.getElementById('tmdbQuery').value   = '';
+    document.getElementById('tmdbResults').innerHTML = '';
     document.getElementById('coverPreview').innerHTML = '<span class="cover-preview-empty">Vista previa</span>';
+    document.getElementById('coverStatus').innerHTML  = 'Selecciona un resultado arriba<br>para obtener la portada automáticamente.';
     document.getElementById('inputTitle').style.borderColor = '';
-    resetPasteZone();
     document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('sel'));
     const first = document.querySelector('.type-btn[data-t="series"]');
     first.classList.add('sel');
     pickType(first, false);
+    updateTMDBVisibility('series');
     document.getElementById('overlay').classList.add('open');
   }
 
@@ -1420,27 +1480,1717 @@
       </div>`
   };
 
-  function pickType(el, resetFields = true) {
-    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('sel'));
-    el.classList.add('sel');
-    if (resetFields) document.getElementById('dynFields').innerHTML = templates[el.dataset.t];
-    else             document.getElementById('dynFields').innerHTML = templates[el.dataset.t];
-  }
-
-  // ── COVER HANDLING (base64) ──────────────────────────────
-  function setcover(base64) {
-    document.getElementById('coverUrl').value = base64;
-    document.getElementById('coverPreview').innerHTML = `<img src="${base64}" alt="portada">`;
-    const zone = document.getElementById('pasteZone');
-    if (zone) {
-      zone.classList.add('ready');
-      zone.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Imagen lista`;
+  function updateTMDBVisibility(type) {
+    const group = document.getElementById('tmdb-search-group');
+    const status = document.getElementById('coverStatus');
+    if (!TMDB_TYPE_MAP[type]) {
+      document.getElementById('tmdbResults').innerHTML = '';
+      document.getElementById('tmdbQuery').value = '';
+      if (status) status.innerHTML = 'Búsqueda automática no disponible para este medio.<br>Sube la portada manualmente.';
+    } else {
+      if (status) status.innerHTML = 'Selecciona un resultado arriba<br>para obtener la portada automáticamente.';
     }
   }
 
-  function clearCover() {
-    document.getElementById('coverUrl').value = '';
+  function pickType(el, resetFields = true) {
+    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('sel'));
+    el.classList.add('sel');
+    document.getElementById('dynFields').innerHTML = templates[el.dataset.t];
+    updateTMDBVisibility(el.dataset.t);
+  }
+
+  // ── TMDB ────────────────────────────────────────────────
+  const TMDB_KEY = 'cf5df06fa2fd278ad382d11d24318338'; //
+
+  const TMDB_TYPE_MAP = {
+    series: 'tv',
+    film:   'movie',
+    manga:  null,
+    books:  null,
+    games:  null,
+  };
+
+  let searchTimer = null;
+
+  function debouncedSearch(query) {
+    clearTimeout(searchTimer);
+    if (!query || query.length < 2) {
+      document.getElementById('tmdbResults').innerHTML = '';
+      return;
+    }
+    searchTimer = setTimeout(() => searchTMDB(query), 400);
+  }
+
+  async function searchTMDB(query) {
+    const type    = document.querySelector('.type-btn.sel')?.dataset.t;
+    const tmdbType = TMDB_TYPE_MAP[type];
+    const results = document.getElementById('tmdbResults');
+    const spinner = document.getElementById('tmdbSpinner');
+    const group   = document.getElementById('tmdb-search-group');
+
+    // Hide search for non-TMDB types
+    if (!tmdbType) {
+      results.innerHTML = `<div class="tmdb-no-results">Búsqueda automática no disponible para este medio.<br>Sube la portada manualmente.</div>`;
+      return;
+    }
+
+    spinner.style.display = 'block';
+    results.innerHTML = '';
+
+    try {
+      const url = `https://api.themoviedb.org/3/search/${tmdbType}?api_key=${TMDB_KEY}&query=${encodeURIComponent(query)}&language=es-MX&page=1`;
+      const res  = await fetch(url);
+      const data = await res.json();
+      spinner.style.display = 'none';
+
+      if (!data.results || data.results.length === 0) {
+        results.innerHTML = `<div class="tmdb-no-results">Sin resultados para "${query}"</div>`;
+        return;
+      }
+
+      results.innerHTML = data.results.slice(0, 6).map(item => {
+        const title    = item.title || item.name || '—';
+        const year     = (item.release_date || item.first_air_date || '').slice(0, 4);
+        const posterUrl = item.poster_path
+          ? `https://image.tmdb.org/t/p/w92${item.poster_path}`
+          : '';
+        const posterImg = posterUrl
+          ? `<img src="${posterUrl}" alt="${title}" loading="lazy">`
+          : `<div style="width:32px;height:46px;background:var(--surface3);border-radius:5px;flex-shrink:0"></div>`;
+
+        return `<div class="tmdb-result" onclick="selectTMDBResult(this, '${posterUrl}', '${title.replace(/'/g,"\\'")}', '${year}', ${item.id})">
+          ${posterImg}
+          <div class="tmdb-result-info">
+            <div class="tmdb-result-title">${title}</div>
+            <div class="tmdb-result-meta">${year || 'Año desconocido'}</div>
+          </div>
+          <svg width="12" height="12" fill="none" stroke="var(--text-faint)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>`;
+      }).join('');
+
+    } catch (err) {
+      spinner.style.display = 'none';
+      results.innerHTML = `<div class="tmdb-no-results">Error al conectar con TMDB</div>`;
+    }
+  }
+
+  function selectTMDBResult(el, posterUrl, title, year, tmdbId) {
+    // Mark selected
+    document.querySelectorAll('.tmdb-result').forEach(r => r.classList.remove('selected'));
+    el.classList.add('selected');
+
+    // Fill title if empty
+    const titleInput = document.getElementById('inputTitle');
+    if (!titleInput.value) titleInput.value = title;
+
+    // Set cover
+    if (posterUrl) {
+      // Use w342 for better quality storage
+      const hqUrl = posterUrl.replace('/w92/', '/w342/');
+      document.getElementById('coverUrl').value = hqUrl;
+      document.getElementById('coverPreview').innerHTML = `<img src="${hqUrl}" alt="portada">`;
+      document.getElementById('coverStatus').innerHTML<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arcana — Tu universo multimedia</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Epilogue:wght@300;400;500;600&family=Fira+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #16120d;   /* marrón oscuro, no negro puro */
+    --surface:   #1e1912;   /* superficie principal */
+    --surface2:  #252019;   /* superficie elevada */
+    --surface3:  #2c2720;   /* hover / activo */
+    --border:    rgba(255, 220, 160, 0.09);
+    --border2:   rgba(255, 220, 160, 0.14);
+
+    --text:      #f0e8d8;   /* crema cálida */
+    --text-soft: #a89880;   /* texto secundario */
+    --text-faint:#6a5e4e;   /* texto muy suave */
+
+    /* Acentos — más saturados para contrastar con el fondo oscuro */
+    --series:    #e07a52;   /* terracota brillante */
+    --film:      #c4963a;   /* ámbar dorado */
+    --manga:     #6aaa6a;   /* verde jade */
+    --books:     #a87ac8;   /* lavanda cálida */
+    --games:     #52a0cc;   /* azul acero */
+
+    --radius: 14px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.2);
+    --shadow-hover: 0 8px 28px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Epilogue', sans-serif;
+    font-weight: 400;
+    min-height: 100vh;
+  }
+
+  /* Warm ambient glow */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      radial-gradient(ellipse 70% 50% at 10% 5%,  rgba(224,122,82,0.06) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 40% at 90% 90%, rgba(196,150,58,0.05) 0%, transparent 55%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Layout ── */
+  .layout { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 230px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .brand {
+    padding: 28px 24px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand-name {
+    font-family: 'Lora', serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .brand-tagline {
+    font-family: 'Fira Mono', monospace;
+    font-size: 9px;
+    color: var(--text-faint);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 5px;
+  }
+
+  .nav { padding: 20px 14px; flex: 1; }
+
+  .nav-section-label {
+    font-family: 'Fira Mono', monospace;
+    font-size: 8.5px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    padding: 0 10px;
+    margin-bottom: 8px;
+  }
+
+  .nav-group { margin-bottom: 24px; }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-soft);
+    margin-bottom: 2px;
+    transition: all 0.18s;
+  }
+
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: var(--surface3); color: var(--text); font-weight: 500; }
+
+  .nav-pip { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .nav-count {
+    margin-left: auto;
+    font-family: 'Fira Mono', monospace;
+    font-size: 10px;
+    color: var(--text-faint);
+    background: var(--bg);
+    padding: 1px 7px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+
+  .sidebar-profile {
+    padding: 16px 20px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--series), var(--books));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Lora', serif;
+    font-size: 14px; font-weight: 700;
+    color: white; flex-shrink: 0;
+  }
+
+  .profile-name { font-size: 13px; font-weight: 500; color: var(--text); }
+  .profile-sub { font-family: 'Fira Mono', monospace; font-size: 9px; color: var(--text-faint); margin-top: 1px; }
+
+  /* ── Main ── */
+  .main { flex: 1; padding: 44px 52px; max-width: 1100px; }
+
+  /* ── Page header ── */
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 36px;
+  }
+
+  .greeting {
+    font-family: 'Fira Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 6px;
+  }
+
+  .page-title {
+    font-family: 'Lora', serif;
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -1.5px;
+    line-height: 1.1;
+    color: var(--text);
+  }
+
+  .page-title em { font-style: italic; color: var(--series); }
+
+  .add-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--text);
+    color: var(--bg);
+    border: none;
+    border-radius: 50px;
+    padding: 11px 22px;
+    font-family: 'Epilogue', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.2px;
+    flex-shrink: 0;
+  }
+
+  .add-btn:hover { background: var(--series); color: white; transform: translateY(-1px); }
+
+  /* ── Stats ── */
+  .stats-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 36px;
+  }
+
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    box-shadow: var(--shadow);
+    transition: box-shadow 0.2s, border-color 0.2s;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .stat:nth-child(1) { animation-delay: 0.04s; }
+  .stat:nth-child(2) { animation-delay: 0.08s; }
+  .stat:nth-child(3) { animation-delay: 0.12s; }
+  .stat:nth-child(4) { animation-delay: 0.16s; }
+
+  .stat::after {
+    content: attr(data-icon);
+    position: absolute;
+    right: 12px; bottom: 4px;
+    font-size: 40px;
+    opacity: 0.05;
+    line-height: 1;
+  }
+
+  .stat:hover { box-shadow: var(--shadow-hover); border-color: var(--border2); }
+
+  .stat-label {
+    font-family: 'Fira Mono', monospace;
+    font-size: 8.5px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 8px;
+  }
+
+  .stat-number {
+    font-family: 'Lora', serif;
+    font-size: 38px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: -1px;
+  }
+
+  .stat-desc { font-size: 11px; color: var(--text-soft); margin-top: 4px; }
+
+  /* ── Section label ── */
+  .section-label {
+    font-family: 'Fira Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── Tabs ── */
+  .tab-row {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+
+  .tab {
+    padding: 8px 18px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-faint);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.18s;
+  }
+
+  .tab.active { color: var(--series); border-bottom-color: var(--series); }
+  .tab:hover:not(.active) { color: var(--text-soft); }
+
+  /* ── Two col ── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 28px;
+    margin-bottom: 40px;
+  }
+
+  /* ── Media cards ── */
+  .media-grid { display: flex; flex-direction: column; gap: 10px; }
+
+  .media-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 15px 18px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: all 0.2s;
+    animation: slideIn 0.4s ease both;
+  }
+
+  .media-card:nth-child(1) { animation-delay: 0.1s; }
+  .media-card:nth-child(2) { animation-delay: 0.15s; }
+  .media-card:nth-child(3) { animation-delay: 0.2s; }
+  .media-card:nth-child(4) { animation-delay: 0.25s; }
+  .media-card:nth-child(5) { animation-delay: 0.3s; }
+
+  .media-card:hover {
+    box-shadow: var(--shadow-hover);
+    border-color: var(--border2);
+    transform: translateX(3px);
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-12px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .media-icon-wrap {
+    width: 50px; height: 68px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .media-icon-wrap img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+    display: block;
+  }
+
+  .media-icon-wrap .fallback-emoji {
+    font-size: 22px;
+  }
+
+  .media-info { flex: 1; min-width: 0; }
+
+  .media-type-tag {
+    font-family: 'Fira Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 3px;
+  }
+
+  .media-title {
+    font-family: 'Lora', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+  }
+
+  .media-sub {
+    font-size: 11px;
+    color: var(--text-soft);
+    font-family: 'Fira Mono', monospace;
+  }
+
+  .media-progress { width: 120px; flex-shrink: 0; text-align: right; }
+
+  .progress-track {
+    height: 4px;
+    background: var(--surface3);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 5px;
+  }
+
+  .progress-fill { height: 100%; border-radius: 2px; }
+
+  .progress-pct {
+    font-family: 'Fira Mono', monospace;
+    font-size: 10px;
+    color: var(--text-soft);
+  }
+
+  /* ── Side panel ── */
+  .side-panel { display: flex; flex-direction: column; gap: 16px; }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+
+  .medium-list { display: flex; flex-direction: column; gap: 12px; }
+
+  .medium-row { display: flex; align-items: center; gap: 10px; }
+
+  .medium-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .medium-name { font-size: 12px; flex: 1; color: var(--text-soft); }
+
+  .medium-track {
+    width: 80px; height: 3px;
+    background: var(--surface3);
+    border-radius: 2px; overflow: hidden;
+  }
+
+  .medium-fill { height: 100%; border-radius: 2px; }
+
+  .medium-n {
+    font-family: 'Fira Mono', monospace;
+    font-size: 10px;
+    color: var(--text-faint);
+    width: 22px; text-align: right;
+  }
+
+  /* Activity */
+  .activity-feed { display: flex; flex-direction: column; }
+
+  .activity-row {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .activity-row:last-child { border-bottom: none; }
+
+  .activity-line {
+    width: 2px; border-radius: 1px;
+    flex-shrink: 0;
+    margin: 3px 4px 0;
+    align-self: stretch;
+  }
+
+  .activity-body { flex: 1; }
+  .activity-title { font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--text); }
+  .activity-meta { font-family: 'Fira Mono', monospace; font-size: 9px; color: var(--text-faint); margin-top: 2px; }
+
+  /* ── Pending ── */
+  .pending-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  .pending-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .pending-card:hover { box-shadow: var(--shadow-hover); border-color: var(--border2); transform: translateY(-2px); }
+
+  .pending-icon { font-size: 24px; margin-bottom: 10px; }
+
+  .pending-title {
+    font-family: 'Lora', serif;
+    font-size: 14px; font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px; line-height: 1.3;
+  }
+
+  .pending-meta { font-family: 'Fira Mono', monospace; font-size: 9px; color: var(--text-faint); }
+
+  .pending-badge {
+    display: inline-block;
+    margin-top: 10px;
+    font-family: 'Fira Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  /* ── Modal ── */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(10, 8, 5, 0.75);
+    backdrop-filter: blur(6px);
+    z-index: 400;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 32px 34px;
+    width: 500px;
+    max-height: 88vh;
+    overflow-y: auto;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+    animation: modalIn 0.3s ease;
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+
+  .modal-title {
+    font-family: 'Lora', serif;
+    font-size: 22px; font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  .modal-close {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-soft);
+    cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+
+  .modal-close:hover { background: var(--surface3); color: var(--text); }
+
+  /* Type picker */
+  .type-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px; margin-bottom: 22px;
+  }
+
+  .type-btn {
+    padding: 12px 6px 10px;
+    border-radius: 12px;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    text-align: center; cursor: pointer;
+    transition: all 0.18s;
+    font-size: 11px;
+    color: var(--text-soft);
+    font-family: 'Epilogue', sans-serif;
+  }
+
+  .type-btn .ico { font-size: 20px; display: block; margin-bottom: 5px; }
+  .type-btn:hover { background: var(--surface3); color: var(--text); }
+
+  .type-btn.sel { border-color: currentColor; font-weight: 500; }
+  .type-btn[data-t="series"].sel { color: var(--series); background: rgba(224,122,82,0.1); }
+  .type-btn[data-t="film"].sel   { color: var(--film);   background: rgba(196,150,58,0.1); }
+  .type-btn[data-t="manga"].sel  { color: var(--manga);  background: rgba(106,170,106,0.1); }
+  .type-btn[data-t="books"].sel  { color: var(--books);  background: rgba(168,122,200,0.1); }
+  .type-btn[data-t="games"].sel  { color: var(--games);  background: rgba(82,160,204,0.1); }
+
+  /* Form */
+  .f-group { margin-bottom: 16px; }
+
+  .f-label {
+    font-family: 'Fira Mono', monospace;
+    font-size: 9px; letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    display: block; margin-bottom: 7px;
+  }
+
+  .f-input, .f-select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 13px;
+    color: var(--text);
+    font-family: 'Epilogue', sans-serif;
+    font-size: 13px; outline: none;
+    transition: border-color 0.15s;
+    appearance: none;
+  }
+
+  .f-input::placeholder { color: var(--text-faint); }
+  .f-input:focus, .f-select:focus { border-color: var(--border2); }
+
+  .f-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .btn-save {
+    width: 100%; padding: 13px;
+    border-radius: 12px;
+    background: var(--text);
+    color: var(--bg);
+    border: none;
+    font-family: 'Epilogue', sans-serif;
+    font-size: 13.5px; font-weight: 600;
+    cursor: pointer; transition: all 0.18s;
+    margin-top: 8px; letter-spacing: 0.3px;
+  }
+
+  .btn-save:hover { background: var(--series); color: white; }
+
+  /* Cover picker */
+  .cover-picker {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .cover-preview {
+    width: 64px; height: 90px;
+    border-radius: 8px;
+    background: var(--surface2);
+    border: 1.5px dashed var(--border2);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .cover-preview img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+  }
+
+  .cover-preview-empty {
+    font-family: 'Fira Mono', monospace;
+    font-size: 8px;
+    color: var(--text-faint);
+    letter-spacing: 1px;
+    text-align: center;
+    padding: 0 6px;
+  }
+
+  .cover-inputs { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+
+  .paste-zone {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2);
+    border: 1.5px dashed var(--border2);
+    border-radius: 10px;
+    padding: 11px 13px;
+    font-size: 12px; color: var(--text-soft);
+    cursor: pointer; transition: all 0.18s;
+    outline: none;
+    font-family: 'Epilogue', sans-serif;
+  }
+
+  .paste-zone:focus, .paste-zone:hover {
+    border-color: var(--series);
+    color: var(--text);
+  }
+
+  .paste-zone.ready {
+    border-color: var(--manga);
+    color: var(--manga);
+  }
+
+  .paste-zone kbd {
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: 'Fira Mono', monospace;
+    font-size: 10px;
+    color: var(--text);
+  }
+
+  .cover-divider {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'Fira Mono', monospace;
+    font-size: 9px; color: var(--text-faint);
+    letter-spacing: 1px;
+  }
+
+  .cover-divider::before, .cover-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  .cover-upload-btn {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 9px 13px;
+    font-family: 'Epilogue', sans-serif;
+    font-size: 12px; color: var(--text-soft);
+    cursor: pointer; transition: all 0.18s;
+  }
+
+  .cover-upload-btn:hover { border-color: var(--border2); color: var(--text); }
+
+  .card-delete {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-faint);
+    cursor: pointer; font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+    opacity: 0;
+  }
+
+  .media-card:hover .card-delete { opacity: 1; }
+  .card-delete:hover { background: rgba(224,122,82,0.15); color: var(--series); border-color: var(--series); }
+
+  /* TMDB results */
+  .tmdb-results {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .tmdb-result {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .tmdb-result:hover { border-color: var(--border2); background: var(--surface3); }
+  .tmdb-result.selected { border-color: var(--manga); background: rgba(106,170,106,0.08); }
+
+  .tmdb-result img {
+    width: 32px; height: 46px;
+    object-fit: cover;
+    border-radius: 5px;
+    flex-shrink: 0;
+    background: var(--surface3);
+  }
+
+  .tmdb-result-info { flex: 1; min-width: 0; }
+  .tmdb-result-title { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tmdb-result-meta  { font-family: 'Fira Mono', monospace; font-size: 9px; color: var(--text-faint); margin-top: 2px; }
+
+  .tmdb-no-results {
+    font-family: 'Fira Mono', monospace;
+    font-size: 10px;
+    color: var(--text-faint);
+    text-align: center;
+    padding: 16px 0;
+    letter-spacing: 1px;
+  }
+
+  select option { background: var(--surface2); color: var(--text); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-name">Arcana</div>
+      <div class="brand-tagline">Tu universo multimedia</div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-group">
+        <div class="nav-section-label">General</div>
+        <div class="nav-item active">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Dashboard
+        </div>
+        <div class="nav-item">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Biblioteca
+        </div>
+        <div class="nav-item">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Historial
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-section-label">Medios</div>
+        <div class="nav-item">
+          <span class="nav-pip" style="background:var(--series)"></span>
+          Series / TV
+          <span class="nav-count" id="nav-count-series">0</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-pip" style="background:var(--film)"></span>
+          Películas
+          <span class="nav-count" id="nav-count-film">0</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-pip" style="background:var(--manga)"></span>
+          Manga / Cómic
+          <span class="nav-count" id="nav-count-manga">0</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-pip" style="background:var(--books)"></span>
+          Libros
+          <span class="nav-count" id="nav-count-books">0</span>
+        </div>
+        <div class="nav-item">
+          <span class="nav-pip" style="background:var(--games)"></span>
+          Videojuegos
+          <span class="nav-count" id="nav-count-games">0</span>
+        </div>
+      </div>
+    </nav>
+
+    <div class="sidebar-profile">
+      <div class="avatar">R</div>
+      <div>
+        <div class="profile-name">Rene</div>
+        <div class="profile-sub">Consumidor voraz</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <div class="page-header">
+      <div>
+        <div class="greeting">Domingo, Mayo 2026</div>
+        <h1 class="page-title">Tu <em>universo,</em><br>de un vistazo.</h1>
+      </div>
+      <button class="add-btn" onclick="openModal()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Añadir entrada
+      </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-strip">
+      <div class="stat" data-icon="📚">
+        <div class="stat-label">Total registrado</div>
+        <div class="stat-number" id="stat-total">0</div>
+        <div class="stat-desc">en todos los medios</div>
+      </div>
+      <div class="stat" data-icon="✓">
+        <div class="stat-label">Completados</div>
+        <div class="stat-number" id="stat-done">0</div>
+        <div class="stat-desc" id="stat-done-pct">—</div>
+      </div>
+      <div class="stat" data-icon="▶">
+        <div class="stat-label">En progreso</div>
+        <div class="stat-number" id="stat-progress">0</div>
+        <div class="stat-desc">actualmente</div>
+      </div>
+      <div class="stat" data-icon="◷">
+        <div class="stat-label">Pendientes</div>
+        <div class="stat-number" id="stat-pending">0</div>
+        <div class="stat-desc">en tu lista</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-row">
+      <div class="tab active" data-status="En progreso" onclick="setTab(this)">En progreso</div>
+      <div class="tab" data-status="Completado" onclick="setTab(this)">Completados</div>
+      <div class="tab" data-status="Pendiente" onclick="setTab(this)">Pendientes</div>
+      <div class="tab" data-status="Favorito" onclick="setTab(this)">Favoritos</div>
+    </div>
+
+    <!-- Two col -->
+    <div class="two-col">
+      <div>
+        <div class="section-label" id="list-label">Consumiendo ahora</div>
+        <div class="media-grid" id="media-list">
+          <!-- populated by JS -->
+        </div>
+        <div id="empty-state" style="display:none;padding:40px 0;text-align:center;">
+          <div style="font-size:32px;margin-bottom:12px;opacity:0.3">◈</div>
+          <div style="font-family:'Fira Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--text-faint);text-transform:uppercase;">Nada aquí todavía</div>
+          <div style="font-size:12px;color:var(--text-faint);margin-top:6px;">Añade tu primera entrada con el botón de arriba.</div>
+        </div>
+      </div>
+
+      <!-- Side panel -->
+      <div class="side-panel">
+        <div class="panel">
+          <div class="section-label">Por medio</div>
+          <div class="medium-list" id="medium-breakdown">
+            <!-- populated by JS -->
+          </div>
+        </div>
+        <div class="panel">
+          <div class="section-label">Actividad reciente</div>
+          <div class="activity-feed" id="activity-feed">
+            <!-- populated by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending preview -->
+    <div id="pending-section">
+      <div class="section-label">Próximos en la lista</div>
+      <div class="pending-grid" id="pending-list">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title-text">Nueva entrada</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+
+    <div class="f-group">
+      <div class="f-label">¿Qué tipo de contenido?</div>
+      <div class="type-grid">
+        <div class="type-btn sel" data-t="series" onclick="pickType(this)"><span class="ico">📺</span>Serie</div>
+        <div class="type-btn" data-t="film"   onclick="pickType(this)"><span class="ico">🎬</span>Película</div>
+        <div class="type-btn" data-t="manga"  onclick="pickType(this)"><span class="ico">📖</span>Manga</div>
+        <div class="type-btn" data-t="books"  onclick="pickType(this)"><span class="ico">📚</span>Libro</div>
+        <div class="type-btn" data-t="games"  onclick="pickType(this)"><span class="ico">🎮</span>Juego</div>
+      </div>
+    </div>
+
+    <div class="f-group">
+      <label class="f-label">Título</label>
+      <input id="inputTitle" class="f-input" type="text" placeholder="Nombre del contenido…">
+    </div>
+
+    <div class="f-group" id="tmdb-search-group">
+      <label class="f-label">Buscar en base de datos</label>
+      <div style="position:relative">
+        <input id="tmdbQuery" class="f-input" type="text"
+               placeholder="Escribe el título para buscar…"
+               oninput="debouncedSearch(this.value)" autocomplete="off">
+        <div id="tmdbSpinner" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="2">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83">
+              <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/>
+            </path>
+          </svg>
+        </div>
+      </div>
+      <div id="tmdbResults" class="tmdb-results"></div>
+    </div>
+
+    <div class="f-group">
+      <label class="f-label">Portada</label>
+      <div class="cover-picker">
+        <div class="cover-preview" id="coverPreview">
+          <span class="cover-preview-empty">Vista previa</span>
+        </div>
+        <div class="cover-inputs">
+          <div id="coverStatus" style="font-family:'Fira Mono',monospace;font-size:9px;color:var(--text-faint);line-height:1.7;">
+            Selecciona un resultado arriba<br>para obtener la portada automáticamente.
+          </div>
+          <div class="cover-divider"><span>o sube manualmente</span></div>
+          <label class="cover-upload-btn">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Seleccionar imagen
+            <input type="file" accept="image/*" style="display:none" onchange="loadFromFile(this)">
+          </label>
+          <input type="hidden" id="coverUrl">
+        </div>
+      </div>
+    </div>
+
+    <div class="f-group">
+      <label class="f-label">Estado</label>
+      <select id="inputStatus" class="f-select">
+        <option>En progreso</option>
+        <option>Completado</option>
+        <option>Pendiente</option>
+        <option>Abandonado</option>
+        <option>Favorito</option>
+      </select>
+    </div>
+
+    <div id="dynFields"></div>
+
+    <div class="f-group">
+      <label class="f-label">Notas (opcional)</label>
+      <input id="inputNotes" class="f-input" type="text" placeholder="Algo que quieras recordar…">
+    </div>
+
+    <button class="btn-save" onclick="saveEntry()">Guardar entrada</button>
+  </div>
+</div>
+
+<script>
+  // ── CONFIG ──────────────────────────────────────────────
+  const MEDIA_META = {
+    series: { label: 'Serie',      emoji: '📺', color: 'var(--series)', rgb: '224,122,82'  },
+    film:   { label: 'Película',   emoji: '🎬', color: 'var(--film)',   rgb: '196,150,58'  },
+    manga:  { label: 'Manga',      emoji: '📖', color: 'var(--manga)',  rgb: '106,170,106' },
+    books:  { label: 'Libro',      emoji: '📚', color: 'var(--books)',  rgb: '168,122,200' },
+    games:  { label: 'Videojuego', emoji: '🎮', color: 'var(--games)',  rgb: '82,160,204'  },
+  };
+
+  const STATUS_LABELS = {
+    'En progreso': 'Consumiendo ahora',
+    'Completado':  'Completados',
+    'Pendiente':   'Pendientes',
+    'Favorito':    'Favoritos',
+    'Abandonado':  'Abandonados',
+  };
+
+  // ── STORAGE ─────────────────────────────────────────────
+  function loadEntries() {
+    try { return JSON.parse(localStorage.getItem('arcana_entries') || '[]'); }
+    catch { return []; }
+  }
+
+  function saveEntries(entries) {
+    localStorage.setItem('arcana_entries', JSON.stringify(entries));
+  }
+
+  // ── PROGRESS CALCULATION ────────────────────────────────
+  function calcProgress(entry) {
+    const d = entry.data;
+    switch (entry.type) {
+      case 'series': {
+        const cur = (parseInt(d.epActual) || 0);
+        const tot = (parseInt(d.epTotal) || 0);
+        if (tot > 0) return { pct: Math.round(cur / tot * 100), label: `T${d.tempActual || 1} · Ep ${cur} de ${tot}` };
+        return { pct: null, label: `T${d.tempActual || '?'} · Ep ${cur || '?'}` };
+      }
+      case 'film':
+        return { pct: entry.status === 'Completado' ? 100 : null,
+                 label: d.director ? `Dir. ${d.director}` : (entry.status === 'Completado' ? 'Vista' : 'Pendiente de ver') };
+      case 'manga': {
+        const cur = parseInt(d.tomoActual) || 0;
+        const tot = parseInt(d.tomoTotal) || 0;
+        if (tot > 0) return { pct: Math.round(cur / tot * 100), label: `Tomo ${cur} de ${tot}` };
+        return { pct: null, label: `Tomo ${cur || '?'} · ${d.publicacion || ''}` };
+      }
+      case 'books': {
+        const cur = parseInt(d.pagActual) || 0;
+        const tot = parseInt(d.pagTotal) || 0;
+        if (tot > 0) return { pct: Math.round(cur / tot * 100), label: `Pág. ${cur} de ${tot}${d.autor ? ' · ' + d.autor : ''}` };
+        return { pct: null, label: d.autor || '' };
+      }
+      case 'games': {
+        const pct = parseInt(d.pctComp) || 0;
+        const hrs = d.horas ? `${d.horas} hrs` : '';
+        return { pct, label: [hrs, d.plataforma].filter(Boolean).join(' · ') };
+      }
+    }
+    return { pct: null, label: '' };
+  }
+
+  // ── RENDER HELPERS ──────────────────────────────────────
+  function coverHTML(entry, size = 'card') {
+    const m = MEDIA_META[entry.type];
+    const w = size === 'card' ? '50px' : '40px';
+    const h = size === 'card' ? '68px' : '56px';
+    if (entry.cover) {
+      return `<div class="media-icon-wrap" style="background:rgba(${m.rgb},0.12);width:${w};height:${h}">
+        <img src="${entry.cover}" alt="portada"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <span class="fallback-emoji" style="display:none">${m.emoji}</span>
+      </div>`;
+    }
+    return `<div class="media-icon-wrap" style="background:rgba(${m.rgb},0.12);width:${w};height:${h}">
+      <span class="fallback-emoji">${m.emoji}</span>
+    </div>`;
+  }
+
+  function timeAgo(ts) {
+    const diff = Date.now() - ts;
+    const min  = Math.floor(diff / 60000);
+    const hrs  = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    if (min < 2)   return 'Hace un momento';
+    if (min < 60)  return `Hace ${min} min`;
+    if (hrs < 24)  return `Hace ${hrs} hr${hrs > 1 ? 's' : ''}`;
+    if (days < 7)  return `Hace ${days} día${days > 1 ? 's' : ''}`;
+    return new Date(ts).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+  }
+
+  // ── RENDER DASHBOARD ────────────────────────────────────
+  let currentTab = 'En progreso';
+
+  function renderAll() {
+    const entries = loadEntries();
+
+    // Stats
+    const total    = entries.length;
+    const done     = entries.filter(e => e.status === 'Completado').length;
+    const inprog   = entries.filter(e => e.status === 'En progreso').length;
+    const pending  = entries.filter(e => e.status === 'Pendiente').length;
+    document.getElementById('stat-total').textContent    = total;
+    document.getElementById('stat-done').textContent     = done;
+    document.getElementById('stat-done-pct').textContent = total > 0 ? `${Math.round(done/total*100)}% del total` : '—';
+    document.getElementById('stat-progress').textContent = inprog;
+    document.getElementById('stat-pending').textContent  = pending;
+
+    // Nav counts
+    Object.entries(MEDIA_META).forEach(([key, m]) => {
+      const el = document.getElementById(`nav-count-${key}`);
+      if (el) el.textContent = entries.filter(e => e.type === key).length;
+    });
+
+    // Media list (current tab)
+    renderList(entries, currentTab);
+
+    // Breakdown
+    renderBreakdown(entries);
+
+    // Activity
+    renderActivity(entries);
+
+    // Pending preview
+    renderPending(entries);
+  }
+
+  function renderList(entries, status) {
+    const filtered = entries.filter(e => e.status === status)
+                            .sort((a, b) => b.updatedAt - a.updatedAt);
+    const list  = document.getElementById('media-list');
+    const empty = document.getElementById('empty-state');
+    const label = document.getElementById('list-label');
+
+    label.textContent = STATUS_LABELS[status] || status;
+
+    if (filtered.length === 0) {
+      list.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+
+    list.innerHTML = filtered.map((entry, i) => {
+      const m    = MEDIA_META[entry.type];
+      const prog = calcProgress(entry);
+      const progressBar = prog.pct !== null
+        ? `<div class="progress-track"><div class="progress-fill" style="width:${prog.pct}%;background:${m.color}"></div></div>
+           <div class="progress-pct" style="color:${m.color}">${prog.pct}%</div>`
+        : `<div class="progress-pct" style="color:${m.color};font-size:11px">${entry.status}</div>`;
+
+      return `<div class="media-card" style="animation-delay:${i * 0.05}s" onclick="openDetail('${entry.id}')">
+        ${coverHTML(entry)}
+        <div class="media-info">
+          <div class="media-type-tag" style="color:${m.color}">${m.label}</div>
+          <div class="media-title">${entry.title}</div>
+          <div class="media-sub">${prog.label}</div>
+        </div>
+        <div class="media-progress">${progressBar}</div>
+        <button class="card-delete" onclick="deleteEntry(event,'${entry.id}')" title="Eliminar">✕</button>
+      </div>`;
+    }).join('');
+  }
+
+  function renderBreakdown(entries) {
+    const counts = {};
+    Object.keys(MEDIA_META).forEach(k => counts[k] = 0);
+    entries.forEach(e => { if (counts[e.type] !== undefined) counts[e.type]++; });
+    const max = Math.max(...Object.values(counts), 1);
+
+    document.getElementById('medium-breakdown').innerHTML =
+      Object.entries(MEDIA_META).map(([key, m]) => `
+        <div class="medium-row">
+          <div class="medium-dot" style="background:${m.color}"></div>
+          <div class="medium-name">${m.label}s</div>
+          <div class="medium-track">
+            <div class="medium-fill" style="width:${Math.round(counts[key]/max*100)}%;background:${m.color}"></div>
+          </div>
+          <div class="medium-n">${counts[key]}</div>
+        </div>`).join('');
+  }
+
+  function renderActivity(entries) {
+    const recent = [...entries].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 5);
+    const feed   = document.getElementById('activity-feed');
+    if (recent.length === 0) {
+      feed.innerHTML = `<div style="padding:16px 0;font-family:'Fira Mono',monospace;font-size:10px;color:var(--text-faint);text-align:center;letter-spacing:1px;">SIN ACTIVIDAD AÚN</div>`;
+      return;
+    }
+    feed.innerHTML = recent.map(e => {
+      const m = MEDIA_META[e.type];
+      return `<div class="activity-row">
+        <div class="activity-line" style="background:${m.color}"></div>
+        <div class="activity-body">
+          <div class="activity-title">${e.title}</div>
+          <div class="activity-meta">${timeAgo(e.updatedAt)} · ${e.status}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderPending(entries) {
+    const pending = entries.filter(e => e.status === 'Pendiente')
+                           .sort((a, b) => b.updatedAt - a.updatedAt)
+                           .slice(0, 3);
+    const section = document.getElementById('pending-section');
+    const list    = document.getElementById('pending-list');
+    if (pending.length === 0) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    list.innerHTML = pending.map(e => {
+      const m    = MEDIA_META[e.type];
+      const prog = calcProgress(e);
+      return `<div class="pending-card" onclick="openDetail('${e.id}')">
+        <div class="pending-icon">${e.cover
+          ? `<img src="${e.cover}" style="width:40px;height:56px;object-fit:cover;border-radius:6px;" onerror="this.outerHTML='${m.emoji}'">`
+          : m.emoji}</div>
+        <div class="pending-title">${e.title}</div>
+        <div class="pending-meta">${m.label}${prog.label ? ' · ' + prog.label : ''}</div>
+        <div class="pending-badge" style="background:rgba(${m.rgb},0.15);color:${m.color}">Pendiente</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── DETAIL / EDIT MODAL ─────────────────────────────────
+  function openDetail(id) {
+    const entries = loadEntries();
+    const entry   = entries.find(e => e.id === id);
+    if (!entry) return;
+    // For now, open edit modal pre-filled
+    openEditModal(entry);
+  }
+
+  function openEditModal(entry) {
+    currentEditId = entry.id;
+    const m = MEDIA_META[entry.type];
+
+    // Set type
+    document.querySelectorAll('.type-btn').forEach(b => {
+      b.classList.toggle('sel', b.dataset.t === entry.type);
+    });
+    pickType(document.querySelector(`.type-btn[data-t="${entry.type}"]`), false);
+
+    // Fill fields
+    document.getElementById('inputTitle').value  = entry.title || '';
+    document.getElementById('inputStatus').value = entry.status || 'En progreso';
+    document.getElementById('coverUrl').value    = entry.cover || '';
+    document.getElementById('inputNotes').value  = entry.notes || '';
+
+    document.getElementById('tmdbQuery').value      = '';
+    document.getElementById('tmdbResults').innerHTML = '';
+
+    if (entry.cover) {
+      document.getElementById('coverUrl').value = entry.cover;
+      document.getElementById('coverPreview').innerHTML = `<img src="${entry.cover}" alt="portada">`;
+      document.getElementById('coverStatus').innerHTML  = `<span style="color:var(--manga)">✓ Portada guardada</span>`;
+    } else {
+      document.getElementById('coverUrl').value = '';
+      document.getElementById('coverPreview').innerHTML = '<span class="cover-preview-empty">Vista previa</span>';
+      document.getElementById('coverStatus').innerHTML  = 'Selecciona un resultado arriba<br>para obtener la portada automáticamente.';
+    }
+
+    // Fill dynamic fields after template is rendered
+    setTimeout(() => fillDynFields(entry), 0);
+
+    document.getElementById('modal-title-text').textContent = 'Editar entrada';
+    document.getElementById('overlay').classList.add('open');
+  }
+
+  function fillDynFields(entry) {
+    const d = entry.data || {};
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el && val !== undefined) el.value = val;
+    };
+    switch (entry.type) {
+      case 'series':
+        setVal('s-tempActual', d.tempActual); setVal('s-epActual', d.epActual);
+        setVal('s-tempTotal', d.tempTotal);   setVal('s-epTotal', d.epTotal); break;
+      case 'film':
+        setVal('f-duracion', d.duracion); setVal('f-score', d.score);
+        setVal('f-director', d.director); break;
+      case 'manga':
+        setVal('m-tomoActual', d.tomoActual); setVal('m-tomoTotal', d.tomoTotal);
+        setVal('m-capActual', d.capActual);
+        const pub = document.getElementById('m-publicacion');
+        if (pub && d.publicacion) pub.value = d.publicacion; break;
+      case 'books':
+        setVal('b-pagActual', d.pagActual); setVal('b-pagTotal', d.pagTotal);
+        setVal('b-autor', d.autor);         setVal('b-saga', d.saga); break;
+      case 'games':
+        setVal('g-horas', d.horas); setVal('g-pct', d.pctComp);
+        const plat = document.getElementById('g-plataforma');
+        const modo = document.getElementById('g-modo');
+        if (plat && d.plataforma) plat.value = d.plataforma;
+        if (modo && d.modo)       modo.value = d.modo; break;
+    }
+  }
+
+  // ── SAVE ENTRY ──────────────────────────────────────────
+  let currentEditId = null;
+
+  function collectDynData(type) {
+    const get = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+    switch (type) {
+      case 'series': return { tempActual: get('s-tempActual'), epActual: get('s-epActual'), tempTotal: get('s-tempTotal'), epTotal: get('s-epTotal') };
+      case 'film':   return { duracion: get('f-duracion'), score: get('f-score'), director: get('f-director') };
+      case 'manga':  return { tomoActual: get('m-tomoActual'), tomoTotal: get('m-tomoTotal'), capActual: get('m-capActual'), publicacion: get('m-publicacion') };
+      case 'books':  return { pagActual: get('b-pagActual'), pagTotal: get('b-pagTotal'), autor: get('b-autor'), saga: get('b-saga') };
+      case 'games':  return { horas: get('g-horas'), pctComp: get('g-pct'), plataforma: get('g-plataforma'), modo: get('g-modo') };
+    }
+    return {};
+  }
+
+  function saveEntry() {
+    const type   = document.querySelector('.type-btn.sel')?.dataset.t || 'series';
+    const title  = document.getElementById('inputTitle').value.trim();
+    const status = document.getElementById('inputStatus').value;
+    const cover  = document.getElementById('coverUrl').value.trim();
+    const notes  = document.getElementById('inputNotes').value.trim();
+
+    if (!title) {
+      document.getElementById('inputTitle').focus();
+      document.getElementById('inputTitle').style.borderColor = 'var(--series)';
+      return;
+    }
+
+    const entries = loadEntries();
+    const now     = Date.now();
+
+    if (currentEditId) {
+      const idx = entries.findIndex(e => e.id === currentEditId);
+      if (idx !== -1) {
+        entries[idx] = { ...entries[idx], type, title, status, cover, notes,
+                         data: collectDynData(type), updatedAt: now };
+      }
+    } else {
+      entries.push({ id: `e_${now}_${Math.random().toString(36).slice(2,7)}`,
+                     type, title, status, cover, notes,
+                     data: collectDynData(type),
+                     createdAt: now, updatedAt: now });
+    }
+
+    saveEntries(entries);
+    closeModal();
+    renderAll();
+  }
+
+  function deleteEntry(evt, id) {
+    evt.stopPropagation();
+    const entries = loadEntries().filter(e => e.id !== id);
+    saveEntries(entries);
+    renderAll();
+  }
+
+  // ── MODAL ────────────────────────────────────────────────
+  function resetPasteZone() {
+    const zone = document.getElementById('pasteZone');
+    if (!zone) return;
+    zone.classList.remove('ready');
+    zone.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-3"/></svg>
+    Clic aquí y pega con <kbd>Ctrl+V</kbd>`;
+  }
+
+  function openModal() {
+    currentEditId = null;
+    document.getElementById('modal-title-text').textContent = 'Nueva entrada';
+    document.getElementById('inputTitle').value  = '';
+    document.getElementById('inputStatus').value = 'En progreso';
+    document.getElementById('coverUrl').value    = '';
+    document.getElementById('inputNotes').value  = '';
+    document.getElementById('tmdbQuery').value   = '';
+    document.getElementById('tmdbResults').innerHTML = '';
     document.getElementById('coverPreview').innerHTML = '<span class="cover-preview-empty">Vista previa</span>';
+    document.getElementById('coverStatus').innerHTML  = 'Selecciona un resultado arriba<br>para obtener la portada automáticamente.';
+    document.getElementById('inputTitle').style.borderColor = '';
+    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('sel'));
+    const first = document.querySelector('.type-btn[data-t="series"]');
+    first.classList.add('sel');
+    pickType(first, false);
+    updateTMDBVisibility('series');
+    document.getElementById('overlay').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('overlay').classList.remove('open');
+    currentEditId = null;
+  }
+
+  // ── TEMPLATES ────────────────────────────────────────────
+  const templates = {
+    series: `
+      <div class="f-row">
+        <div class="f-group"><label class="f-label">Temporada actual</label><input id="s-tempActual" class="f-input" type="number" placeholder="1" min="1"></div>
+        <div class="f-group"><label class="f-label">Episodio actual</label><input id="s-epActual" class="f-input" type="number" placeholder="1" min="1"></div>
+      </div>
+      <div class="f-row">
+        <div class="f-group"><label class="f-label">Total temporadas</label><input id="s-tempTotal" class="f-input" type="number" placeholder="—" min="1"></div>
+        <div class="f-group"><label class="f-label">Total episodios</label><input id="s-epTotal" class="f-input" type="number" placeholder="—" min="1"></div>
+      </div>`,
+    film: `
+      <div class="f-row">
+        <div class="f-group"><label class="f-label">Duración (min)</label><input id="f-duracion" class="f-input" type="number" placeholder="120"></div>
+        <div class="f-group"><label class="f-label">Puntuación /10</label><input id="f-score" class="f-input" type="number" placeholder="—" min="1" max="10"></div>
+      </div>
+      <div class="f-group"><label class="f-label">Director</label><input id="f-director" class="f-input" type="text" placeholder="Nombre del director"></div>`,
+    manga: `
+      <div class="f-row">
+        <div class="f-group"><label class="f-label">Tomo actual</label><input id="m-tomoActual" class="f-input" type="number" placeholder="1" min="1"></div>
+        <div class="f-group"><label class="f-label">Total tomos</label><input id="m-tomoTotal" class="f-input" type="number" placeholder="—" min="1"></div>
+      </div>
+      <div class="f-row">
+        <div class="f-group"><label class="f-label">Capítulo actual</label><input id="m-capActual" class="f-input" type="number" placeholder="—" min="1"></div>
+        <div class="f-group"><label class="f-label">Publicación</label><select id="m-publicacion" class="f-select"><option>Completo</option><option>En curso</option><option>Pausado</option></select></div>
+      </div>`,
+    books: `
+      <div class="f-row">
+        <div class="f-group"><label class="f-label">Página actual</label><input id="b-pagActual" class="f-input" type="number" placeholder="1" min="1"></div>
+        <div class="f-group"><label class="f-label">Total páginas</label><input id="b-pagTotal" class="f-input" type="number" placeholder="—" min="1"></div>
+      </div>
+      <div class="f-row">
+        <div class="f-group"><label class="f-label">Autor</label><input id="b-autor" class="f-input" type="text" placeholder="Nombre del autor"></div>
+        <div class="f-group"><label class="f-label">Saga (opcional)</label><input id="b-saga" class="f-input" type="text" placeholder="—"></div>
+      </div>`,
+    games: `
+      <div class="f-row">
+        <div class="f-group"><label class="f-label">Horas jugadas</label><input id="g-horas" class="f-input" type="number" placeholder="0" min="0"></div>
+        <div class="f-group"><label class="f-label">% completado</label><input id="g-pct" class="f-input" type="number" placeholder="0" min="0" max="100"></div>
+      </div>
+      <div class="f-row">
+        <div class="f-group"><label class="f-label">Plataforma</label><select id="g-plataforma" class="f-select"><option>PC</option><option>PlayStation</option><option>Xbox</option><option>Nintendo Switch</option><option>Móvil</option><option>Otro</option></select></div>
+        <div class="f-group"><label class="f-label">Modo</label><select id="g-modo" class="f-select"><option>Historia principal</option><option>100%</option><option>Multijugador</option><option>Casual</option></select></div>
+      </div>`
+  };
+
+  function updateTMDBVisibility(type) {
+    const group = document.getElementById('tmdb-search-group');
+    const status = document.getElementById('coverStatus');
+    if (!TMDB_TYPE_MAP[type]) {
+      document.getElementById('tmdbResults').innerHTML = '';
+      document.getElementById('tmdbQuery').value = '';
+      if (status) status.innerHTML = 'Búsqueda automática no disponible para este medio.<br>Sube la portada manualmente.';
+    } else {
+      if (status) status.innerHTML = 'Selecciona un resultado arriba<br>para obtener la portada automáticamente.';
+    }
+  }
+
+  function pickType(el, resetFields = true) {
+    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('sel'));
+    el.classList.add('sel');
+    document.getElementById('dynFields').innerHTML = templates[el.dataset.t];
+    updateTMDBVisibility(el.dataset.t);
+  }
+
+  // ── TMDB ────────────────────────────────────────────────
+  const TMDB_KEY = 'TU_API_KEY_AQUI'; // ← reemplaza con tu API key de TMDB
+
+  const TMDB_TYPE_MAP = {
+    series: 'tv',
+    film:   'movie',
+    manga:  null,
+    books:  null,
+    games:  null,
+  };
+
+  let searchTimer = null;
+
+  function debouncedSearch(query) {
+    clearTimeout(searchTimer);
+    if (!query || query.length < 2) {
+      document.getElementById('tmdbResults').innerHTML = '';
+      return;
+    }
+    searchTimer = setTimeout(() => searchTMDB(query), 400);
+  }
+
+  async function searchTMDB(query) {
+    const type    = document.querySelector('.type-btn.sel')?.dataset.t;
+    const tmdbType = TMDB_TYPE_MAP[type];
+    const results = document.getElementById('tmdbResults');
+    const spinner = document.getElementById('tmdbSpinner');
+    const group   = document.getElementById('tmdb-search-group');
+
+    // Hide search for non-TMDB types
+    if (!tmdbType) {
+      results.innerHTML = `<div class="tmdb-no-results">Búsqueda automática no disponible para este medio.<br>Sube la portada manualmente.</div>`;
+      return;
+    }
+
+    spinner.style.display = 'block';
+    results.innerHTML = '';
+
+    try {
+      const url = `https://api.themoviedb.org/3/search/${tmdbType}?api_key=${TMDB_KEY}&query=${encodeURIComponent(query)}&language=es-MX&page=1`;
+      const res  = await fetch(url);
+      const data = await res.json();
+      spinner.style.display = 'none';
+
+      if (!data.results || data.results.length === 0) {
+        results.innerHTML = `<div class="tmdb-no-results">Sin resultados para "${query}"</div>`;
+        return;
+      }
+
+      results.innerHTML = data.results.slice(0, 6).map(item => {
+        const title    = item.title || item.name || '—';
+        const year     = (item.release_date || item.first_air_date || '').slice(0, 4);
+        const posterUrl = item.poster_path
+          ? `https://image.tmdb.org/t/p/w92${item.poster_path}`
+          : '';
+        const posterImg = posterUrl
+          ? `<img src="${posterUrl}" alt="${title}" loading="lazy">`
+          : `<div style="width:32px;height:46px;background:var(--surface3);border-radius:5px;flex-shrink:0"></div>`;
+
+        return `<div class="tmdb-result" onclick="selectTMDBResult(this, '${posterUrl}', '${title.replace(/'/g,"\\'")}', '${year}', ${item.id})">
+          ${posterImg}
+          <div class="tmdb-result-info">
+            <div class="tmdb-result-title">${title}</div>
+            <div class="tmdb-result-meta">${year || 'Año desconocido'}</div>
+          </div>
+          <svg width="12" height="12" fill="none" stroke="var(--text-faint)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>`;
+      }).join('');
+
+    } catch (err) {
+      spinner.style.display = 'none';
+      results.innerHTML = `<div class="tmdb-no-results">Error al conectar con TMDB</div>`;
+    }
+  }
+
+  function selectTMDBResult(el, posterUrl, title, year, tmdbId) {
+    // Mark selected
+    document.querySelectorAll('.tmdb-result').forEach(r => r.classList.remove('selected'));
+    el.classList.add('selected');
+
+    // Fill title if empty
+    const titleInput = document.getElementById('inputTitle');
+    if (!titleInput.value) titleInput.value = title;
+
+    // Set cover
+    if (posterUrl) {
+      // Use w342 for better quality storage
+      const hqUrl = posterUrl.replace('/w92/', '/w342/');
+      document.getElementById('coverUrl').value = hqUrl;
+      document.getElementById('coverPreview').innerHTML = `<img src="${hqUrl}" alt="portada">`;
+      document.getElementById('coverStatus').innerHTML =
+        `<span style="color:var(--manga)">✓ Portada obtenida de TMDB</span>`;
+    }
+  }
+
+  // ── COVER HANDLING ───────────────────────────────────────
+  function setcover(base64) {
+    document.getElementById('coverUrl').value = base64;
+    document.getElementById('coverPreview').innerHTML = `<img src="${base64}" alt="portada">`;
+    document.getElementById('coverStatus').innerHTML =
+      `<span style="color:var(--manga)">✓ Imagen cargada</span>`;
   }
 
   function loadFromFile(input) {
@@ -1451,35 +3201,50 @@
     reader.readAsDataURL(file);
   }
 
-  // Paste from clipboard (Ctrl+V anywhere in modal, or focused on paste zone)
-  function handlePaste(e) {
-    const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
-    if (!items) return;
-    for (const item of items) {
-      if (item.type.startsWith('image/')) {
-        e.preventDefault();
-        const blob   = item.getAsFile();
-        const reader = new FileReader();
-        reader.onload = ev => setcover(ev.target.result);
-        reader.readAsDataURL(blob);
-        return;
-      }
+  function resetPasteZone() {}  // no-op, kept for compat
+
+  function previewFromUrl() {}  // no-op
+
+  function setTab(el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentTab = el.dataset.status;
+    renderList(loadEntries(), currentTab);
+  }
+
+  // Keyboard shortcut
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  // ── INIT ─────────────────────────────────────────────────
+  renderAll();
+</script>
+</body>
+</html> =
+        `<span style="color:var(--manga)">✓ Portada obtenida de TMDB</span>`;
     }
   }
 
-  // Wire paste zone focus+click and global modal paste
-  document.addEventListener('DOMContentLoaded', () => {
-    const zone = document.getElementById('pasteZone');
-    if (zone) {
-      zone.addEventListener('focus', () => zone.addEventListener('paste', handlePaste));
-      zone.addEventListener('blur',  () => zone.removeEventListener('paste', handlePaste));
-    }
-    // Also catch paste anywhere inside the modal
-    document.getElementById('overlay').addEventListener('paste', handlePaste);
-  });
+  // ── COVER HANDLING ───────────────────────────────────────
+  function setcover(base64) {
+    document.getElementById('coverUrl').value = base64;
+    document.getElementById('coverPreview').innerHTML = `<img src="${base64}" alt="portada">`;
+    document.getElementById('coverStatus').innerHTML =
+      `<span style="color:var(--manga)">✓ Imagen cargada</span>`;
+  }
 
-  // Alias for inline oninput (kept for safety, no-op now)
-  function previewFromUrl() {}
+  function loadFromFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => setcover(e.target.result);
+    reader.readAsDataURL(file);
+  }
+
+  function resetPasteZone() {}  // no-op, kept for compat
+
+  function previewFromUrl() {}  // no-op
 
   function setTab(el) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
